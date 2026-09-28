@@ -117,11 +117,7 @@ The history tests run against a real SQLite database in memory instead of mocks,
 
 A [GitHub Actions workflow](.github/workflows/ci.yml) restores, builds and tests the solution on every push to `main` and on every pull request. The badge at the top of this README shows the result of the latest run.
 
-### Hosting
 
-<!-- TODO: Update when the app is deployed to Azure App Service. -->
-
-The app is planned to be hosted on Azure App Service (Linux). The SQLite database will be stored under `/home`, which is persistent storage on App Service. The connection string is overridden with an app setting, so no code changes are needed.
 
 ## Possible future improvements
 
