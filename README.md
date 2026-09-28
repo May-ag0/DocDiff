@@ -2,27 +2,24 @@
 
 [![CI](https://github.com/May-ag0/DocDiff/actions/workflows/ci.yml/badge.svg)](https://github.com/May-ag0/DocDiff/actions/workflows/ci.yml)
 
-DocDiff is a small web application for comparing two versions of a text document. Upload an original and an updated `.txt` or `.md` file, and DocDiff shows line by line what was added, removed and left unchanged. Every comparison is logged to a history page.
+DocDiff is a small web application for comparing two versions of a text document. Upload an original and an updated `.txt` or `.md` file to see line by line what was added, removed and left unchanged. Every comparison is logged to a history page.
 
 ![Comparing two versions of a contract](docs/screenshots/compare.png)
 
 ## Why I built it
 
-I wanted to strengthen my practical .NET/C# experience by building a small full-stack application where application logic, persistence, testing and deployment work together.
+I wanted to strengthen my practical .NET/C# experience by building a small full-stack application where application logic, persistence, testing and continuous integration work together.
 
-With DocDiff I wanted to work through the full .NET workflow end to end: structuring a Blazor application, keeping business logic out of the UI with dependency injection, persisting data with Entity Framework Core, writing unit and integration tests with xUnit, and running it all through CI.
-
-Comparing document versions is a common task wherever people work with contracts, policies and other text-heavy documents. That makes it a useful, well-defined problem for a portfolio project. DocDiff is a technical project and does not provide any legal functionality.
+Comparing document versions is a common task wherever people work with contracts, policies and other text-heavy documents, which makes it a useful and well-defined problem. DocDiff is a technical project and does not provide any legal functionality.
 
 ## Features
 
-- **Upload two documents**: `.txt` and `.md`, up to 1 MB each
-- **Line-by-line comparison** based on the Longest Common Subsequence (LCS) algorithm
-- **Clear diff view** with added, removed and unchanged lines, line numbers for both versions and a change summary
-- **Validation with clear error messages** for unsupported file types, files that are too large, binary content and files with too many lines
-- **Comparison history** stored in SQLite, showing file names, timestamp and number of changes
-- **Privacy by design**: only metadata is stored, never the contents of the documents
-- **Handles different line endings**: files with Windows (`\r\n`) and Unix (`\n`) line endings compare correctly
+- Upload two `.txt` or `.md` files, up to 1 MB each
+- Line-by-line comparison based on the Longest Common Subsequence (LCS) algorithm
+- Diff view with added, removed and unchanged lines, line numbers for both versions and a change summary
+- Validation of file type, file size, binary content and line count, with clear error messages
+- Comparison history stored in SQLite. Only metadata is stored, never the document contents
+- Correct handling of Windows (`\r\n`) and Unix (`\n`) line endings
 
 | History                                       | Validation                                                                   |
 | --------------------------------------------- | ---------------------------------------------------------------------------- |
@@ -38,61 +35,53 @@ Comparing document versions is a common task wherever people work with contracts
 | Database      | SQLite                                            |
 | Testing       | xUnit                                             |
 | UI            | Bootstrap 5 with custom CSS                       |
-| CI            | GitHub Actions                                    |                  |
+| CI            | GitHub Actions                                    |
 
 ## Architecture
 
-The solution has two projects. The application logic is organised in folders instead of separate class libraries, which keeps the structure simple for an application of this size.
+The solution has two projects: the web application and its tests. Code is organised in folders rather than separate class libraries, which keeps the structure simple for an application of this size.
 
 ```
 DocDiff/
 ├── src/DocDiff.Web/
 │   ├── Components/
-│   │   ├── Layout/            # MainLayout, NavMenu
-│   │   ├── Pages/             # Home (compare), History
-│   │   ├── DiffView.razor     # Renders a list of diff lines
-│   │   └── DocumentPicker.razor  # File input + reading + validation
-│   ├── Models/                # DiffLine, DiffLineType, ComparisonResult, DocumentComparison
-│   ├── Services/              # Comparison logic, validation, history
-│   ├── Data/                  # AppDbContext + EF Core migrations
-│   └── Program.cs             # Dependency injection and app setup
-├── tests/DocDiff.Tests/       # xUnit tests
-└── samples/                   # Example documents to try the app with
+│   │   ├── Layout/               # MainLayout, NavMenu
+│   │   ├── Pages/                # Home (compare), History
+│   │   ├── DiffView.razor        # Renders the diff
+│   │   └── DocumentPicker.razor  # File selection, reading and validation
+│   ├── Models/                   # DiffLine, DiffLineType, ComparisonResult, DocumentComparison
+│   ├── Services/                 # Comparison, validation and history
+│   ├── Data/                     # AppDbContext and EF Core migrations
+│   └── Program.cs                # Dependency injection and app setup
+├── tests/DocDiff.Tests/          # xUnit tests
+└── samples/                      # Example documents
 ```
 
-### Key design decisions
+### Design decisions
 
-- **The UI contains no business logic.** Razor components handle user interaction only. The diff algorithm lives in `DocumentComparisonService`, the validation rules in `UploadValidator` and data access in `ComparisonHistoryService`. Because of this separation, the logic can be tested without the UI.
-- **Dependency injection throughout.** Components depend on interfaces (`IDocumentComparisonService`, `IComparisonHistoryService`), not on concrete classes. The comparison service is stateless and registered as a singleton.
-- **`IDbContextFactory` for Blazor Server.** In Blazor Server a DI scope lives as long as the user's connection, which is far too long for a `DbContext`. `ComparisonHistoryService` therefore creates a short-lived context for each operation, which is the pattern Microsoft recommends for Blazor Server.
-- **No repository layer.** EF Core's `DbContext` already implements the repository and unit-of-work patterns. A thin service with the two queries the app needs is enough.
-- **Timestamps are stored in UTC.** SQLite has no date type, so a value converter marks values as UTC when they are read back. An integration test covers this conversion.
+- **No business logic in the UI.** Razor components only handle user interaction. The diff algorithm lives in `DocumentComparisonService`, validation in `UploadValidator` and data access in `ComparisonHistoryService`, so all logic can be tested without the UI.
+- **Dependency injection.** Components depend on interfaces (`IDocumentComparisonService`, `IComparisonHistoryService`) rather than concrete classes.
+- **`IDbContextFactory` for Blazor Server.** A DI scope in Blazor Server lives as long as the user's connection, which is too long for a `DbContext`. The history service therefore creates a short-lived context for each operation.
+- **No repository layer.** EF Core's `DbContext` already acts as a repository and unit of work, so a thin service with the two queries the app needs is enough.
+- **UTC timestamps.** SQLite has no date type, so a value converter marks timestamps as UTC when they are read back.
 
 ### How the diff works
 
-`DocumentComparisonService` splits both documents into lines and builds an LCS table using dynamic programming. `table[i, j]` holds the length of the longest common subsequence of the remaining lines from position `i` in the original and `j` in the updated document. It then walks through both documents:
+`DocumentComparisonService` splits both documents into lines and builds an LCS table with dynamic programming, where `table[i, j]` is the length of the longest common subsequence of the remaining lines from position `i` in the original and `j` in the updated document. It then walks through both documents. Equal lines become **Unchanged**. Otherwise the table decides whether skipping the original line (**Removed**) or the updated line (**Added**) preserves the longest common subsequence.
 
-- Lines that are equal become **Unchanged**.
-- Otherwise the table decides whether skipping the original line (**Removed**) or the updated line (**Added**) preserves the longest common subsequence.
-
-A simpler approach that compares line 1 with line 1, line 2 with line 2 and so on breaks down as soon as a single line is inserted, because every following line then appears changed. LCS avoids this. The table needs O(n × m) memory, so uploads are limited to 5,000 lines per document.
+Comparing line 1 with line 1, line 2 with line 2 and so on would mark every line after an insertion as changed. LCS avoids this. The table uses O(n × m) memory, so documents are limited to 5,000 lines.
 
 ## Running locally
 
-**Prerequisites:** [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)
+Requires the [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0).
 
 ```bash
 git clone https://github.com/May-ag0/DocDiff.git
 cd DocDiff
-dotnet tool restore
 dotnet run --project src/DocDiff.Web
 ```
 
-`dotnet tool restore` installs the local `dotnet-ef` tool, which you only need if you create new migrations.
-
-Open the URL printed in the terminal. The SQLite database (`docdiff.db`) is created automatically on first startup, because pending migrations are applied when the app starts.
-
-To try the app, compare `samples/contract-v1.txt` with `samples/contract-v2.txt`.
+Open the URL shown in the terminal. The SQLite database is created automatically on first startup. To try the app, compare `samples/contract-v1.txt` with `samples/contract-v2.txt`.
 
 ## Testing
 
@@ -100,30 +89,23 @@ To try the app, compare `samples/contract-v1.txt` with `samples/contract-v2.txt`
 dotnet test
 ```
 
-The test project contains 25 tests:
-
 | Test class                       | What it covers                                                                                                 |
 | -------------------------------- | -------------------------------------------------------------------------------------------------------------- |
 | `DocumentComparisonServiceTests` | Identical documents, added, removed and changed lines, empty documents, line-ending differences, change counts |
-| `UploadValidatorTests`           | Allowed file types, size limit boundaries, binary content, line limit                                          |
-| `ComparisonHistoryServiceTests`  | Integration tests against an in-memory SQLite database: ordering, limits, UTC round-tripping                   |
+| `UploadValidatorTests`           | File types, size limit boundaries, binary content, line limit                                                  |
+| `ComparisonHistoryServiceTests`  | Ordering, result limits and UTC handling, tested against an in-memory SQLite database                          |
 
-The history tests run against a real SQLite database in memory instead of mocks, so the migrations, the query and the UTC conversion are all exercised. The tests focus on application logic rather than on UI components.
+The history tests use a real SQLite database instead of mocks, so the migrations and queries are tested as well.
 
-## Deployment
+## Continuous integration
 
-### Continuous integration
-
-A [GitHub Actions workflow](.github/workflows/ci.yml) restores, builds and tests the solution on every push to `main` and on every pull request. The badge at the top of this README shows the result of the latest run.
-
-
+A [GitHub Actions workflow](.github/workflows/ci.yml) restores, builds and runs all tests on every push to `main` and on every pull request.
 
 ## Possible future improvements
 
-- **Word-level highlighting** within changed lines, so small edits are easier to spot
-- **Side-by-side view** as an alternative to the unified diff
-- **More efficient algorithm** (such as Myers' diff, or trimming common prefixes and suffixes) to support larger documents
-- **Optional storage of document contents**, so past comparisons can be reopened from the history page
-- **PDF and Word support** by extracting text before comparing
-- **AI-generated summary** of the changes, for example with Azure OpenAI
-- **Component and end-to-end tests** with bUnit and Playwright
+- Word-level highlighting within changed lines
+- Side-by-side view as an alternative to the unified diff
+- A more memory-efficient diff algorithm (such as Myers' algorithm) for larger documents
+- Optional storage of document contents, so past comparisons can be reopened
+- PDF and Word support by extracting text before comparing
+- AI-generated summary of the changes
