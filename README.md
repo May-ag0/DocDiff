@@ -38,8 +38,7 @@ Comparing document versions is a common task wherever people work with contracts
 | Database      | SQLite                                            |
 | Testing       | xUnit                                             |
 | UI            | Bootstrap 5 with custom CSS                       |
-| CI            | GitHub Actions                                    |
-| Hosting       | Azure App Service (planned)                       |
+| CI            | GitHub Actions                                    |                  |
 
 ## Architecture
 
