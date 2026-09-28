@@ -1,0 +1,30 @@
+<div class="diff">
+    @foreach (var line in Lines)
+    {
+        <div class="diff-line @CssClass(line.Type)">
+            <span class="line-no">@line.OriginalLineNumber</span>
+            <span class="line-no">@line.UpdatedLineNumber</span>
+            <span class="marker">@Marker(line.Type)</span>
+            <span class="text">@line.Text</span>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public IReadOnlyList<DiffLine> Lines { get; set; } = [];
+
+    private static string CssClass(DiffLineType type) => type switch
+    {
+        DiffLineType.Added => "added",
+        DiffLineType.Removed => "removed",
+        _ => "unchanged"
+    };
+
+    private static string Marker(DiffLineType type) => type switch
+    {
+        DiffLineType.Added => "+",
+        DiffLineType.Removed => "−",
+        _ => ""
+    };
+}

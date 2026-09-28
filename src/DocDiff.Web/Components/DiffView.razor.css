@@ -1,0 +1,60 @@
+.diff {
+    font-family: var(--dd-mono);
+    font-size: 0.8125rem;
+    background: #fff;
+    overflow-x: auto;
+}
+
+.diff-line {
+    display: flex;
+    line-height: 1.7;
+    min-height: 1.7em;
+}
+
+.line-no {
+    width: 3.25rem;
+    flex-shrink: 0;
+    padding: 0 0.625rem;
+    text-align: right;
+    color: var(--dd-muted);
+    background: var(--dd-subtle);
+    user-select: none;
+}
+
+.marker {
+    width: 1.75rem;
+    flex-shrink: 0;
+    text-align: center;
+    user-select: none;
+}
+
+.text {
+    flex: 1;
+    padding-right: 1rem;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.added {
+    background: var(--dd-added-bg);
+}
+
+    .added .line-no {
+        background: var(--dd-added-gutter);
+    }
+
+    .added .marker {
+        color: var(--dd-added-text);
+    }
+
+.removed {
+    background: var(--dd-removed-bg);
+}
+
+    .removed .line-no {
+        background: var(--dd-removed-gutter);
+    }
+
+    .removed .marker {
+        color: var(--dd-removed-text);
+    }

@@ -1,0 +1,77 @@
+@inject ILogger<DocumentPicker> Logger
+
+<div>
+    <label class="form-label fw-semibold" for="@Id">@Label</label>
+    <InputFile id="@Id"
+               class="@($"form-control {(error is null ? "" : "is-invalid")}")"
+               accept=".txt,.md"
+               OnChange="OnFileSelectedAsync" />
+
+    @if (isLoading)
+    {
+        <div class="form-text">Reading file…</div>
+    }
+    else if (error is not null)
+    {
+        <div class="invalid-feedback d-block">@error</div>
+    }
+    else if (document is not null)
+    {
+        <div class="form-text text-success">✓ Ready · @FormatSize(document.SizeInBytes)</div>
+    }
+    else
+    {
+        <div class="form-text">.txt or .md, max 1 MB</div>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public string Id { get; set; } = "";
+
+    [Parameter, EditorRequired]
+    public string Label { get; set; } = "";
+
+    /// <summary>Raised with the loaded document, or null if the selected file is invalid.</summary>
+    [Parameter]
+    public EventCallback<UploadedDocument?> OnDocumentChanged { get; set; }
+
+    private UploadedDocument? document;
+    private string? error;
+    private bool isLoading;
+
+    private async Task OnFileSelectedAsync(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        document = null;
+        error = UploadValidator.ValidateFile(file.Name, file.Size);
+
+        if (error is null)
+        {
+            isLoading = true;
+            try
+            {
+                using var reader = new StreamReader(file.OpenReadStream(UploadValidator.MaxFileSizeBytes));
+                var content = await reader.ReadToEndAsync();
+
+                error = UploadValidator.ValidateContent(file.Name, content);
+                if (error is null)
+                    document = new UploadedDocument(file.Name, file.Size, content);
+            }
+            catch (Exception ex)
+            {
+                Logger.LogWarning(ex, "Could not read uploaded file {FileName}", file.Name);
+                error = $"\"{file.Name}\" could not be read. Please try again.";
+            }
+            finally
+            {
+                isLoading = false;
+            }
+        }
+
+        await OnDocumentChanged.InvokeAsync(document);
+    }
+
+    private static string FormatSize(long bytes) =>
+        bytes < 1024 ? $"{bytes} bytes" : $"{bytes / 1024.0:0.#} KB";
+}

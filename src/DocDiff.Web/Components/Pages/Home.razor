@@ -1,0 +1,118 @@
+@page "/"
+@inject IDocumentComparisonService ComparisonService
+@inject IComparisonHistoryService HistoryService
+@inject ILogger<Home> Logger
+
+<PageTitle>Compare documents · DocDiff</PageTitle>
+
+<div class="page-header">
+    <h1>Compare documents</h1>
+    <p>Upload two versions of a text document to see which lines were added, removed or left unchanged.</p>
+</div>
+
+<section class="card upload-card mb-4">
+    <div class="card-body p-4">
+        <div class="row g-4">
+            <div class="col-md-6">
+                <DocumentPicker Id="original-file" Label="Original version"
+                                OnDocumentChanged="doc => original = doc" />
+            </div>
+            <div class="col-md-6">
+                <DocumentPicker Id="updated-file" Label="Updated version"
+                                OnDocumentChanged="doc => updated = doc" />
+            </div>
+        </div>
+
+        <button class="btn btn-primary px-4 mt-4" disabled="@(!CanCompare)" @onclick="CompareAsync">
+            Compare
+        </button>
+    </div>
+</section>
+
+@if (saveError is not null)
+{
+    <div class="alert alert-warning">@saveError</div>
+}
+
+@if (comparison is not null && result is not null)
+{
+    <section class="card result-card">
+        <div class="card-header">
+            <div>
+                <div class="file-names">
+                    <span>@comparison.OriginalFileName</span>
+                    <span class="arrow" aria-hidden="true">→</span>
+                    <span>@comparison.UpdatedFileName</span>
+                </div>
+                <div class="compared-at">
+                    Compared @DisplayFormat.LocalTime(comparison.ComparedAt)
+                </div>
+            </div>
+            <div class="summary">
+                <span class="text-added">+@result.AddedCount added</span>
+                <span class="text-removed">−@result.RemovedCount removed</span>
+                <span>@result.UnchangedCount unchanged</span>
+            </div>
+        </div>
+
+        @if (result.Lines.Count == 0)
+        {
+            <div class="notice">Both documents are empty.</div>
+        }
+        else
+        {
+            @if (!result.HasChanges)
+            {
+                <div class="notice">No changes – the documents are identical.</div>
+            }
+            <DiffView Lines="result.Lines" />
+        }
+    </section>
+}
+
+@code {
+    private UploadedDocument? original;
+    private UploadedDocument? updated;
+
+    private DocumentComparison? comparison;
+    private ComparisonResult? result;
+
+    private string? saveError;
+    private bool isComparing;
+
+    private bool CanCompare => original is not null && updated is not null && !isComparing;
+
+    private async Task CompareAsync()
+    {
+        if (original is null || updated is null)
+            return;
+
+        isComparing = true;
+        saveError = null;
+
+        result = ComparisonService.Compare(original.Content, updated.Content);
+        comparison = new DocumentComparison
+        {
+            OriginalFileName = original.FileName,
+            UpdatedFileName = updated.FileName,
+            ComparedAt = DateTime.UtcNow,
+            AddedCount = result.AddedCount,
+            RemovedCount = result.RemovedCount
+        };
+
+        try
+        {
+            await HistoryService.SaveAsync(comparison);
+        }
+        catch (Exception ex)
+        {
+            // The comparison itself succeeded, so we still show it.
+            Logger.LogError(ex, "Could not save comparison to history");
+            saveError = "The comparison is shown below, but it could not be saved to history.";
+        }
+        finally
+        {
+            isComparing = false;
+        }
+    }
+}

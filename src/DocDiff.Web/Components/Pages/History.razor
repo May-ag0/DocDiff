@@ -1,0 +1,84 @@
+@page "/history"
+@inject IComparisonHistoryService HistoryService
+@inject ILogger<History> Logger
+
+<PageTitle>History · DocDiff</PageTitle>
+
+<div class="page-header">
+    <h1>History</h1>
+    <p>The @MaxItems most recent comparisons. Only metadata is stored – document contents are never saved.</p>
+</div>
+
+@if (error is not null)
+{
+    <div class="alert alert-danger">@error</div>
+}
+else if (comparisons is null)
+{
+    <p class="text-muted">Loading…</p>
+}
+else if (comparisons.Count == 0)
+{
+    <section class="card history-card empty-state">
+        <p class="mb-3">No comparisons yet.</p>
+        <a class="btn btn-primary" href="">Compare two documents</a>
+    </section>
+}
+else
+{
+    <section class="card history-card">
+        <div class="table-responsive">
+            <table class="table mb-0 align-middle">
+                <thead>
+                    <tr>
+                        <th scope="col">Compared</th>
+                        <th scope="col">Original</th>
+                        <th scope="col">Updated</th>
+                        <th scope="col" class="text-end">Changes</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var comparison in comparisons)
+                    {
+                        <tr>
+                            <td class="text-nowrap text-muted">@DisplayFormat.LocalTime(comparison.ComparedAt)</td>
+                            <td class="file-name">@comparison.OriginalFileName</td>
+                            <td class="file-name">@comparison.UpdatedFileName</td>
+                            <td class="text-end text-nowrap changes">
+                                @if (comparison.AddedCount == 0 && comparison.RemovedCount == 0)
+                                {
+                                    <span class="text-muted fw-normal">No changes</span>
+                                }
+                                else
+                                {
+                                    <span class="text-added">+@comparison.AddedCount</span>
+                                    <span class="text-removed">−@comparison.RemovedCount</span>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </section>
+}
+
+@code {
+    private const int MaxItems = 50;
+
+    private List<DocumentComparison>? comparisons;
+    private string? error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            comparisons = await HistoryService.GetRecentAsync(MaxItems);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Could not load comparison history");
+            error = "The history could not be loaded. Please try again later.";
+        }
+    }
+}

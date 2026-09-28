@@ -1,0 +1,20 @@
+SERVICE AGREEMENT
+
+1. Parties
+This agreement is entered into between Party A and Party B.
+
+2. Term
+The agreement starts on 1 January 2026 and has a term of 24 months.
+Either party may terminate the agreement with three months written notice.
+
+3. Services
+Party A will deliver software development services as described in Appendix 1.
+
+4. Payment
+Party B shall pay invoices within 14 days of the invoice date.
+
+5. Confidentiality
+Both parties shall keep confidential information secret during the term of the agreement and for two years thereafter.
+
+6. Governing law
+This agreement is governed by Norwegian law.
